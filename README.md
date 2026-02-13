@@ -58,7 +58,7 @@ Results are reranked.
 
 LLM generates grounded answers and insights.
 
-
+'''
 ## Project Structure
 insightforge/
 │
@@ -87,3 +87,4 @@ insightforge/
     ├── file_loader.py
     └── helpers.py
 
+'''
