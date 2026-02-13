@@ -1,29 +1,35 @@
 import streamlit as st
-
 from utils.pdf_parser import extract_pdf_text
+from utils.file_loader import load_text
 from rag.chunking import chunk_text
 from rag.embeddings import embed
 from rag.retriever import VectorStore
+from rag.reranker import rerank
 from rag.llm import generate_answer
 from rag.insight_engine import generate_insights
+from rag.comparison import compare_docs
+from rag.study_mode import generate_flashcards, generate_quiz
 from rag.vision import image_to_text
+from memory.chat_memory import ChatMemory
 
 st.set_page_config(layout="wide")
-st.title("InsightForge AI")
+st.title("InsightForge AI Assistant")
 
-uploaded_file = st.file_uploader("Upload PDF or TXT", type=["pdf", "txt"])
-uploaded_image = st.file_uploader("Upload Image", type=["png", "jpg", "jpeg"])
+memory = ChatMemory()
+
+file = st.file_uploader("Upload document", type=["pdf", "txt"])
+image = st.file_uploader("Upload image", type=["png", "jpg", "jpeg"])
 
 text_data = ""
 
-if uploaded_file:
-    if uploaded_file.name.endswith(".pdf"):
-        text_data = extract_pdf_text(uploaded_file)
+if file:
+    if file.name.endswith(".pdf"):
+        text_data = extract_pdf_text(file)
     else:
-        text_data = uploaded_file.read().decode("utf-8")
+        text_data = load_text(file)
 
-if uploaded_image:
-    vision_text = image_to_text(uploaded_image)
+if image:
+    vision_text = image_to_text(image)
     text_data += "\n" + vision_text
 
 if text_data:
@@ -33,21 +39,29 @@ if text_data:
     store = VectorStore(embeddings.shape[1])
     store.add(embeddings, chunks)
 
-    query = st.text_input("Ask a question")
+    query = st.text_input("Ask question")
 
     if query:
         q_embed = embed([query])
-        results, confidence = store.search(q_embed)
+        results, conf = store.search(q_embed)
+        ranked = rerank(results, query)
 
-        context = " ".join(results)
-        answer = generate_answer(context, query)
+        answer = generate_answer(" ".join(ranked), query)
+        memory.add(query, answer)
 
         st.subheader("Answer")
         st.write(answer)
-
-        st.write(f"Confidence Score: {confidence:.2f}")
+        st.write(f"Confidence Score: {conf:.2f}")
 
     if st.button("Generate Insights"):
         insights = generate_insights(text_data)
-        st.subheader("Insights")
         st.write(insights)
+
+    if st.button("Study Mode"):
+        st.subheader("Flashcards")
+        st.write(generate_flashcards(text_data))
+        st.subheader("Quiz")
+        st.write(generate_quiz(text_data))
+
+st.subheader("Recent Chat")
+st.write(memory.get())
