@@ -4,31 +4,35 @@ from rag.retriever import retrieve_documents
 from rag.llm import generate_response
 from utils.file_loader import load_file
 
-st.set_page_config(page_title="InsightForge AI", page_icon="🤖", layout="wide")
+# --------------------------------------------------
+# PAGE CONFIG
+# --------------------------------------------------
+st.set_page_config(
+    page_title="InsightForge AI",
+    page_icon="🤖",
+    layout="wide"
+)
 
-# -------------------------
-# Session State
-# -------------------------
+# --------------------------------------------------
+# SESSION STATE
+# --------------------------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "documents" not in st.session_state:
     st.session_state.documents = []
 
-# -------------------------
-# Sidebar
-# -------------------------
+# --------------------------------------------------
+# SIDEBAR
+# --------------------------------------------------
 with st.sidebar:
-    st.title("🧠 InsightForge AI")
-
-    if st.button("➕ New Chat"):
-        st.session_state.messages = []
+    st.title("🚀 InsightForge AI")
+    st.caption("ChatGPT-style AI + RAG")
 
     st.markdown("---")
-    st.subheader("📂 Upload Documents")
 
     uploaded_files = st.file_uploader(
-        "Upload files",
+        "Upload Documents",
         type=["pdf", "txt", "docx", "csv"],
         accept_multiple_files=True
     )
@@ -37,44 +41,60 @@ with st.sidebar:
         for file in uploaded_files:
             content = load_file(file)
             st.session_state.documents.append(content)
-
-        st.success(f"{len(uploaded_files)} file(s) uploaded successfully!")
+        st.success(f"{len(uploaded_files)} document(s) uploaded")
 
     st.markdown("---")
-    st.info("Multimodal RAG Assistant")
 
-# -------------------------
-# Main Chat Area
-# -------------------------
-st.title("💬 AI Document Chat")
+    if st.button("🗑 Clear Chat"):
+        st.session_state.messages = []
+        st.rerun()
 
-# Display Chat Messages
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# --------------------------------------------------
+# MAIN CHAT UI
+# --------------------------------------------------
+st.title("💬 AI Chat Assistant")
 
-# -------------------------
-# User Input
-# -------------------------
-user_input = st.chat_input("Ask something about your documents...")
+# Display Chat History
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# --------------------------------------------------
+# CHAT INPUT
+# --------------------------------------------------
+user_input = st.chat_input("Ask anything...")
 
 if user_input:
+    # Save User Message
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # AI Response
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             start_time = time.time()
 
-            retrieved_context = retrieve_documents(user_input)
-            response = generate_response(user_input, retrieved_context)
+            # If documents exist → use RAG
+            if st.session_state.documents:
+                context = retrieve_documents(user_input)
+                response = generate_response(user_input, context)
+            else:
+                # Normal ChatGPT-like response
+                response = generate_response(user_input, context=None)
 
-            end_time = time.time()
+            latency = round(time.time() - start_time, 2)
 
-            st.markdown(response)
-            st.caption(f"⏱ Response time: {round(end_time - start_time, 2)} sec")
+            # Streaming effect
+            placeholder = st.empty()
+            full_response = ""
+            for word in response.split():
+                full_response += word + " "
+                time.sleep(0.02)
+                placeholder.markdown(full_response)
 
-    st.session_state.messages.append({"role": "assistant", "content": response})
+            st.caption(f"⏱ {latency}s")
+
+    st.session_state.messages.append(
+        {"role": "assistant", "content": response}
+    )
