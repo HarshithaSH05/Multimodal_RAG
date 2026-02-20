@@ -1,6 +1,7 @@
 import streamlit as st
 import time
-from rag.retriever import retrieve_documents
+import numpy as np
+from rag.retriever import retrieve_documents, vector_store, embedder
 from rag.llm import generate_response
 from utils.file_loader import load_file
 
@@ -19,9 +20,6 @@ st.set_page_config(
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if "documents" not in st.session_state:
-    st.session_state.documents = []
-
 # --------------------------------------------------
 # SIDEBAR
 # --------------------------------------------------
@@ -37,11 +35,21 @@ with st.sidebar:
         accept_multiple_files=True
     )
 
+    # ✅ ADD DOCUMENTS TO VECTOR STORE
     if uploaded_files:
         for file in uploaded_files:
             content = load_file(file)
-            st.session_state.documents.append(content)
-        st.success(f"{len(uploaded_files)} document(s) uploaded")
+
+            # Simple chunking (can improve later)
+            chunks = [content]
+
+            # Create embeddings
+            embeddings = embedder.encode(chunks).astype("float32")
+
+            # Store in FAISS
+            vector_store.add(embeddings, chunks)
+
+        st.success(f"{len(uploaded_files)} document(s) uploaded & indexed")
 
     st.markdown("---")
 
@@ -65,7 +73,7 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Ask anything...")
 
 if user_input:
-    # Save User Message
+    # Save user message
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     with st.chat_message("user"):
@@ -75,12 +83,11 @@ if user_input:
         with st.spinner("Thinking..."):
             start_time = time.time()
 
-            # If documents exist → use RAG
-            if st.session_state.documents:
+            # ✅ If vector store has documents → use RAG
+            if vector_store.index.ntotal > 0:
                 context = retrieve_documents(user_input)
                 response = generate_response(user_input, context)
             else:
-                # Normal ChatGPT-like response
                 response = generate_response(user_input, context=None)
 
             latency = round(time.time() - start_time, 2)
@@ -95,6 +102,7 @@ if user_input:
 
             st.caption(f"⏱ {latency}s")
 
+    # Save assistant message
     st.session_state.messages.append(
         {"role": "assistant", "content": response}
     )
