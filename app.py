@@ -1,67 +1,80 @@
 import streamlit as st
-from utils.pdf_parser import extract_pdf_text
-from utils.file_loader import load_text
-from rag.chunking import chunk_text
-from rag.embeddings import embed
-from rag.retriever import VectorStore
-from rag.reranker import rerank
-from rag.llm import generate_answer
-from rag.insight_engine import generate_insights
-from rag.comparison import compare_docs
-from rag.study_mode import generate_flashcards, generate_quiz
-from rag.vision import image_to_text
-from memory.chat_memory import ChatMemory
+import time
+from rag.retriever import retrieve_documents
+from rag.llm import generate_response
+from utils.file_loader import load_file
 
-st.set_page_config(layout="wide")
-st.title("InsightForge AI Assistant")
+st.set_page_config(page_title="InsightForge AI", page_icon="🤖", layout="wide")
 
-memory = ChatMemory()
+# -------------------------
+# Session State
+# -------------------------
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-file = st.file_uploader("Upload document", type=["pdf", "txt"])
-image = st.file_uploader("Upload image", type=["png", "jpg", "jpeg"])
+if "documents" not in st.session_state:
+    st.session_state.documents = []
 
-text_data = ""
+# -------------------------
+# Sidebar
+# -------------------------
+with st.sidebar:
+    st.title("🧠 InsightForge AI")
 
-if file:
-    if file.name.endswith(".pdf"):
-        text_data = extract_pdf_text(file)
-    else:
-        text_data = load_text(file)
+    if st.button("➕ New Chat"):
+        st.session_state.messages = []
 
-if image:
-    vision_text = image_to_text(image)
-    text_data += "\n" + vision_text
+    st.markdown("---")
+    st.subheader("📂 Upload Documents")
 
-if text_data:
-    chunks = chunk_text(text_data)
-    embeddings = embed(chunks)
+    uploaded_files = st.file_uploader(
+        "Upload files",
+        type=["pdf", "txt", "docx", "csv"],
+        accept_multiple_files=True
+    )
 
-    store = VectorStore(embeddings.shape[1])
-    store.add(embeddings, chunks)
+    if uploaded_files:
+        for file in uploaded_files:
+            content = load_file(file)
+            st.session_state.documents.append(content)
 
-    query = st.text_input("Ask question")
+        st.success(f"{len(uploaded_files)} file(s) uploaded successfully!")
 
-    if query:
-        q_embed = embed([query])
-        results, conf = store.search(q_embed)
-        ranked = rerank(results, query)
+    st.markdown("---")
+    st.info("Multimodal RAG Assistant")
 
-        answer = generate_answer(" ".join(ranked), query)
-        memory.add(query, answer)
+# -------------------------
+# Main Chat Area
+# -------------------------
+st.title("💬 AI Document Chat")
 
-        st.subheader("Answer")
-        st.write(answer)
-        st.write(f"Confidence Score: {conf:.2f}")
+# Display Chat Messages
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-    if st.button("Generate Insights"):
-        insights = generate_insights(text_data)
-        st.write(insights)
+# -------------------------
+# User Input
+# -------------------------
+user_input = st.chat_input("Ask something about your documents...")
 
-    if st.button("Study Mode"):
-        st.subheader("Flashcards")
-        st.write(generate_flashcards(text_data))
-        st.subheader("Quiz")
-        st.write(generate_quiz(text_data))
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
 
-st.subheader("Recent Chat")
-st.write(memory.get())
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    # AI Response
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            start_time = time.time()
+
+            retrieved_context = retrieve_documents(user_input)
+            response = generate_response(user_input, retrieved_context)
+
+            end_time = time.time()
+
+            st.markdown(response)
+            st.caption(f"⏱ Response time: {round(end_time - start_time, 2)} sec")
+
+    st.session_state.messages.append({"role": "assistant", "content": response})
