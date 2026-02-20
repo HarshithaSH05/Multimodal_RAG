@@ -1,6 +1,13 @@
+import sys
+import os
+
+# ✅ Force project root into Python path (FIXES Streamlit Cloud import issue)
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
 import streamlit as st
 import time
 import numpy as np
+
 from rag.retriever import retrieve_documents, vector_store, embedder
 from rag.llm import generate_response
 from utils.file_loader import load_file
@@ -35,18 +42,14 @@ with st.sidebar:
         accept_multiple_files=True
     )
 
-    # ✅ ADD DOCUMENTS TO VECTOR STORE
+    # ADD DOCUMENTS TO VECTOR STORE
     if uploaded_files:
         for file in uploaded_files:
             content = load_file(file)
 
-            # Simple chunking (can improve later)
             chunks = [content]
 
-            # Create embeddings
             embeddings = embedder.encode(chunks).astype("float32")
-
-            # Store in FAISS
             vector_store.add(embeddings, chunks)
 
         st.success(f"{len(uploaded_files)} document(s) uploaded & indexed")
@@ -62,7 +65,6 @@ with st.sidebar:
 # --------------------------------------------------
 st.title("💬 AI Chat Assistant")
 
-# Display Chat History
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -73,7 +75,6 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Ask anything...")
 
 if user_input:
-    # Save user message
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     with st.chat_message("user"):
@@ -83,7 +84,6 @@ if user_input:
         with st.spinner("Thinking..."):
             start_time = time.time()
 
-            # ✅ If vector store has documents → use RAG
             if vector_store.index.ntotal > 0:
                 context = retrieve_documents(user_input)
                 response = generate_response(user_input, context)
@@ -92,9 +92,9 @@ if user_input:
 
             latency = round(time.time() - start_time, 2)
 
-            # Streaming effect
             placeholder = st.empty()
             full_response = ""
+
             for word in response.split():
                 full_response += word + " "
                 time.sleep(0.02)
@@ -102,7 +102,6 @@ if user_input:
 
             st.caption(f"⏱ {latency}s")
 
-    # Save assistant message
     st.session_state.messages.append(
         {"role": "assistant", "content": response}
     )
