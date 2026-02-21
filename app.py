@@ -1,4 +1,14 @@
 import os
+import streamlit as st
+
+st.write("CURRENT FILES:", os.listdir())
+st.stop()
+
+
+
+
+
+import os
 import sys
 
 # ✅ Stronger root path fix for Streamlit Cloud
