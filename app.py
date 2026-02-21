@@ -1,8 +1,9 @@
 import os
 import sys
 
-# ✅ Add project root to Python path (REAL FIX)
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# ✅ Stronger root path fix for Streamlit Cloud
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, BASE_DIR)
 
 import streamlit as st
 import time
