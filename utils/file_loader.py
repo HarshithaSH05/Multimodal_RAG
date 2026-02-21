@@ -1,2 +1,2 @@
-def load_text(file):
+def load_file(file):
     return file.read().decode("utf-8")
