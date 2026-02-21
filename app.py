@@ -1,11 +1,16 @@
+import os
+import sys
+
+# ✅ Add project root to Python path (REAL FIX)
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 import streamlit as st
 import time
 import numpy as np
 
-# ✅ FIXED IMPORTS (absolute package imports for Streamlit Cloud)
-from multimodal_rag.rag.retriever import retrieve_documents, vector_store, embedder
-from multimodal_rag.rag.llm import generate_response
-from multimodal_rag.utils.file_loader import load_file
+from rag.retriever import retrieve_documents, vector_store, embedder
+from rag.llm import generate_response
+from utils.file_loader import load_file
 
 
 # --------------------------------------------------
@@ -38,7 +43,6 @@ with st.sidebar:
         accept_multiple_files=True
     )
 
-    # ADD DOCUMENTS TO VECTOR STORE
     if uploaded_files:
         for file in uploaded_files:
             content = load_file(file)
