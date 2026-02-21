@@ -1,16 +1,12 @@
-import sys
-import os
-
-# ✅ Force project root into Python path (FIXES Streamlit Cloud import issue)
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
-
 import streamlit as st
 import time
 import numpy as np
 
-from rag.retriever import retrieve_documents, vector_store, embedder
-from rag.llm import generate_response
-from utils.file_loader import load_file
+# ✅ FIXED IMPORTS (absolute package imports for Streamlit Cloud)
+from multimodal_rag.rag.retriever import retrieve_documents, vector_store, embedder
+from multimodal_rag.rag.llm import generate_response
+from multimodal_rag.utils.file_loader import load_file
+
 
 # --------------------------------------------------
 # PAGE CONFIG
